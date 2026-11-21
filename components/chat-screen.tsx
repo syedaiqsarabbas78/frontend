@@ -19,6 +19,7 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopNav, setDesktopNav] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
@@ -65,6 +66,32 @@ export function ChatScreen() {
       bottomRef.current?.scrollIntoView({ block: "end" });
     }
   }, [messages, sending]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const sync = () => {
+      setDesktopNav(media.matches);
+      if (media.matches) {
+        setSidebarOpen(false);
+      }
+    };
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   async function openChat(chat: ChatSummary) {
     setActiveId(chat.id);
@@ -168,7 +195,8 @@ export function ChatScreen() {
   const modelsReady = models.length > 0 && !modelError;
 
   return (
-    <div className="flex h-dvh min-h-0 bg-[#0f1115] text-zinc-100">
+    <div className="flex h-dvh min-h-0 justify-center overflow-hidden bg-[#141210] p-0 text-[#f4efe6] sm:p-3 md:p-5">
+      <div className="flex h-full min-h-0 w-full max-w-4xl overflow-hidden bg-[#1c1916] sm:rounded-2xl sm:border sm:border-[#e7d7c3]/15 sm:shadow-[0_24px_60px_rgba(0,0,0,0.35)]">
       {sidebarOpen ? (
         <button
           type="button"
@@ -178,68 +206,89 @@ export function ChatScreen() {
         />
       ) : null}
       <aside
-        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed z-30 flex h-dvh w-72 flex-col border-r border-white/10 bg-[#171717] p-3 transition-transform md:static md:translate-x-0`}
+        id="sidebar"
+        inert={!desktopNav && !sidebarOpen}
+        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-30 flex h-dvh w-[min(14.5rem,82vw)] flex-col border-r border-[#e7d7c3]/10 bg-[#171512] p-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]! pb-[max(0.5rem,env(safe-area-inset-bottom))]! shadow-2xl transition-transform duration-200 md:static md:z-auto md:h-auto md:w-56 md:translate-x-0 md:pt-2.5! md:pb-2.5! md:shadow-none`}
       >
-        <div className="px-2 py-2 text-lg font-semibold">Harbor Chat</div>
+        <div className="flex items-center justify-between gap-2 px-1.5 py-1">
+          <div className="text-sm font-medium tracking-wide text-[#e7d7c3]">Harbor</div>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#e7d7c3] hover:bg-white/5 md:hidden"
+            aria-label="Close sidebar"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => void createChat()}
-          className="mt-2 rounded-lg border border-white/10 px-3 py-2 text-left hover:bg-white/5 focus-visible:outline focus-visible:outline-2"
+          className="mt-1.5 min-h-9 rounded-md border border-[#e7d7c3]/20 px-2.5 py-1.5 text-left text-sm text-[#f4efe6] hover:bg-[#e7d7c3]/10 focus-visible:outline focus-visible:outline-2"
         >
           New chat
         </button>
-        <div className="mt-4 flex-1 space-y-1 overflow-y-auto">
-          {chats.length === 0 ? <p className="px-2 text-sm text-zinc-500">No chats yet.</p> : null}
+        <div className="mt-3 flex-1 space-y-0.5 overflow-y-auto">
+          {chats.length === 0 ? <p className="px-2 text-xs text-[#a3988c]">No chats yet.</p> : null}
           {chats.map((chat) => (
-            <div key={chat.id} className={`rounded-lg ${chat.id === activeId ? "bg-white/10" : "hover:bg-white/5"}`}>
-              <button
-                type="button"
-                onClick={() => void openChat(chat)}
-                className="w-full truncate px-3 py-2 text-left text-sm focus-visible:outline focus-visible:outline-2"
-              >
-                {chat.title}
-              </button>
+            <div key={chat.id} className={`rounded-md ${chat.id === activeId ? "bg-[#e7d7c3]/15" : "hover:bg-white/5"}`}>
+              <div className="flex min-w-0 items-center">
+                <button
+                  type="button"
+                  onClick={() => void openChat(chat)}
+                  className="min-h-9 min-w-0 flex-1 truncate px-2.5 py-1.5 text-left text-xs focus-visible:outline focus-visible:outline-2"
+                >
+                  {chat.title}
+                </button>
+                {pendingDelete === chat.id ? null : (
+                  <button
+                    type="button"
+                    className="min-h-9 shrink-0 px-2 text-[11px] text-[#a3988c]"
+                    onClick={() => setPendingDelete(chat.id)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
               {pendingDelete === chat.id ? (
-                <div className="flex gap-2 px-3 pb-2 text-xs">
-                  <button type="button" className="text-red-300" onClick={() => void removeChat(chat.id)}>
+                <div className="flex gap-2 px-2.5 pb-1.5 text-[11px]">
+                  <button type="button" className="min-h-8 text-red-300" onClick={() => void removeChat(chat.id)}>
                     Confirm delete
                   </button>
-                  <button type="button" onClick={() => setPendingDelete(null)}>
+                  <button type="button" className="min-h-8" onClick={() => setPendingDelete(null)}>
                     Cancel
                   </button>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  className="px-3 pb-2 text-xs text-zinc-500"
-                  onClick={() => setPendingDelete(chat.id)}
-                >
-                  Delete
-                </button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
-        <div className="border-t border-white/10 pt-3">
-          <p className="truncate px-2 text-sm text-zinc-400">{user?.email}</p>
+        <div className="border-t border-[#e7d7c3]/10 pt-2">
+          <p className="truncate px-1.5 text-xs text-[#a3988c]">{user?.email}</p>
           <button
             type="button"
             onClick={() => void logout()}
-            className="mt-2 w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/5"
+            className="mt-1 min-h-9 w-full rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-white/5"
           >
             Log out
           </button>
         </div>
       </aside>
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-white/10 px-3 py-3">
+      <section className="flex min-w-0 flex-1 flex-col bg-[#221f1b]">
+        <header className="flex min-w-0 items-center gap-2 border-b border-[#e7d7c3]/10 px-2.5 py-1.5 pt-[max(0.4rem,env(safe-area-inset-top))] md:pt-1.5">
           <button
             type="button"
-            className="rounded-md border border-white/10 px-2 py-1 md:hidden"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#e7d7c3]/20 md:hidden"
             aria-label="Open sidebar"
+            aria-expanded={sidebarOpen}
+            aria-controls="sidebar"
             onClick={() => setSidebarOpen(true)}
           >
-            Menu
+            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
           <label className="sr-only" htmlFor="model">
             Model
@@ -249,7 +298,7 @@ export function ChatScreen() {
             value={modelId}
             onChange={(event) => setModelId(event.target.value)}
             disabled={!modelsReady}
-            className="max-w-full rounded-lg border border-white/10 bg-black px-2 py-1 text-sm"
+            className="min-w-0 flex-1 truncate rounded-md border border-[#e7d7c3]/15 bg-[#141210] px-2 py-1 text-base text-[#f4efe6] sm:max-w-52 sm:flex-none sm:text-xs"
           >
             {models.length === 0 ? <option value="">No models available</option> : null}
             {models.map((model) => (
@@ -261,50 +310,53 @@ export function ChatScreen() {
         </header>
         <div
           ref={scrollerRef}
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-6"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5"
           onScroll={(event) => {
             const node = event.currentTarget;
             stickRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
           }}
         >
-          <div className="mx-auto flex max-w-3xl flex-col gap-4">
+          <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-col gap-2">
             {!activeId && messages.length === 0 ? (
-              <p className="text-zinc-400">Start a new chat and send a message.</p>
+              <p className="mx-auto mt-10 max-w-xs text-center text-sm text-[#a3988c]">Start a new chat and send a message.</p>
             ) : null}
-            {modelError ? <p className="text-red-300">{modelError}</p> : null}
+            {modelError ? <p className="text-sm text-red-300">{modelError}</p> : null}
             {models.length === 0 && !modelError ? (
-              <p className="text-zinc-400">No enabled models are configured. Ask an administrator to run the model seed.</p>
+              <p className="text-center text-sm text-[#a3988c]">No enabled models are configured. Ask an administrator to run the model seed.</p>
             ) : null}
             {messages.map((message) => (
               <article
                 key={message.id}
-                className={`max-w-[85%] rounded-2xl px-4 py-3 ${message.role === "user" ? "ml-auto bg-[#2f2f2f]" : "mr-auto bg-transparent"}`}
+                className={`min-w-0 w-fit max-w-[90%] rounded-lg px-2.5 py-1.5 text-sm leading-5 sm:max-w-[80%] ${message.role === "user" ? "ml-auto bg-[#6b4b32] text-[#fff7ee]" : "mr-auto border border-[#e7d7c3]/10 bg-[#2a2622]"}`}
               >
-                <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">{message.role}</p>
+                <p className="mb-0.5 text-[10px] uppercase tracking-wide text-[#cbbba8]">{message.role}</p>
                 {message.status === "failed" ? (
                   <p className="text-red-300">The assistant could not generate a response.</p>
                 ) : message.role === "assistant" ? (
-                  <div className="break-words">
+                  <div className="markdown min-w-0 text-sm leading-5">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</p>
                 )}
               </article>
             ))}
-            {sending ? <p className="text-sm text-zinc-400">Sending...</p> : null}
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {sending ? <p className="text-xs text-[#a3988c]">Sending...</p> : null}
+            {error ? <p className="text-xs text-red-300">{error}</p> : null}
             <div ref={bottomRef} />
           </div>
         </div>
-        <form onSubmit={onSubmit} className="border-t border-white/10 p-3">
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
+        <form
+          onSubmit={onSubmit}
+          className="px-2.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4"
+        >
+          <div className="mx-auto flex w-full max-w-2xl min-w-0 items-end gap-1.5 rounded-xl border border-[#e7d7c3]/15 bg-[#141210] p-1.5">
             <label className="sr-only" htmlFor="composer">
               Message
             </label>
             <textarea
               id="composer"
-              rows={2}
+              rows={1}
               value={draft}
               placeholder="Send a message"
               onChange={(event) => setDraft(event.target.value)}
@@ -314,18 +366,19 @@ export function ChatScreen() {
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              className="max-h-40 min-h-12 flex-1 resize-y rounded-xl border border-white/10 bg-black px-3 py-2 outline-none focus-visible:border-white"
+              className="max-h-28 min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-[#a3988c] sm:text-sm"
             />
             <button
               type="submit"
               disabled={sending || !modelsReady || draft.trim().length === 0}
-              className="rounded-xl bg-white px-4 py-2 font-medium text-black disabled:opacity-50"
+              className="mb-0.5 min-h-8 shrink-0 rounded-lg bg-[#e7d7c3] px-3 text-xs font-medium text-[#2a2118] disabled:opacity-40"
             >
               Send
             </button>
           </div>
         </form>
       </section>
+      </div>
     </div>
   );
 }
