@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
-const backendUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:3001";
+const backendUrl =
+  process.env.BACKEND_URL ?? "https://backend-1nok.onrender.com";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
